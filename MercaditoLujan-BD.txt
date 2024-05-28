@@ -1,0 +1,157 @@
+CREATE DATABASE MERCADITOLUJAN;
+
+USE MERCADITOLUJAN;
+
+-- Tabla para usuarios
+CREATE TABLE Usuarios (
+    ID BIGINT PRIMARY KEY,
+    Nombre VARCHAR(100),
+	Cedula VARCHAR(20),
+	Correo VARCHAR(20),
+	Contrasenna VARCHAR(100),
+	Telefono VARCHAR(50),
+	Estado BIT,
+	EsTemporal BIT,
+    IdRol BIGINT, -- Ya sea Empleado, Administrador, Cliente o Revendedor
+	FOREIGN KEY (IdRol) REFERENCES Roles(IdRol)
+);
+
+-- Tabla para roles
+CREATE TABLE Roles (
+	IdRol BIGINT PRIMARY KEY,
+	NombreRol VARCHAR(20)
+);
+
+INSERT INTO Roles(IdRol, NombreRol)
+VALUES(1, 'Administrador'), (2, 'Empleado'),
+	  (3, 'Cliente'), (4, 'Revendedor');
+
+-- Tabla para productos
+CREATE TABLE Productos (
+    ID BIGINT PRIMARY KEY,
+    Nombre VARCHAR(100),
+    Descripcion VARCHAR(255),
+    Stock INT,
+    Precio DECIMAL(10, 2)
+);
+
+-- Tabla para rutas
+CREATE TABLE Rutas (
+    ID BIGINT PRIMARY KEY,
+    Nombre VARCHAR(100),
+    Descripcion VARCHAR(255)
+);
+
+-- Tabla para pagos de empleados
+CREATE TABLE PagosEmpleados (
+    ID BIGINT PRIMARY KEY,
+    IdEmpleado BIGINT,
+    Fecha DATE,
+    Monto DECIMAL(10, 2),
+    FOREIGN KEY (IdEmpleado) REFERENCES Usuarios(ID)
+);
+
+-- Tabla para facturas
+CREATE TABLE Facturas (
+    ID BIGINT PRIMARY KEY,
+    IdCliente BIGINT,
+    Fecha DATE,
+    Total DECIMAL(10, 2),
+    FOREIGN KEY (IdCliente) REFERENCES Usuarios(ID)
+);
+
+-- Tabla para registros de horas laborales de empleados
+CREATE TABLE RegistrosHoras (
+    ID BIGINT PRIMARY KEY,
+    IdEmpleado BIGINT,
+    Fecha DATE,
+    HoraEntrada TIME,
+    HoraSalida TIME,
+    HoraAlmuerzoInicio TIME,
+    HoraAlmuerzoFin TIME,
+    FOREIGN KEY (IdEmpleado) REFERENCES Usuarios(ID)
+);
+
+-- Tabla para perfiles de clientes y revendedores
+CREATE TABLE PerfilesClientesRevendedores (
+    ID BIGINT PRIMARY KEY,
+    IdUsuario BIGINT,
+    Tipo VARCHAR(20), --Ya sea Cliente o Revendedor
+    FOREIGN KEY (IdUsuario) REFERENCES Usuarios(ID)
+);
+
+-- Tabla para filtros aplicados por usuarios
+CREATE TABLE Filtros (
+    ID BIGINT PRIMARY KEY,
+    IdUsuario BIGINT,
+    Seccion VARCHAR(100),
+    Descripcion VARCHAR(255),
+    FOREIGN KEY (IdUsuario) REFERENCES Usuarios(ID)
+);
+
+-- Tabla para opciones de compra
+CREATE TABLE OpcionesCompra (
+    ID BIGINT PRIMARY KEY,
+    Descripcion VARCHAR(100)
+);
+
+
+-- Procedimientos Almacenados
+
+-- Inicio de Sesion
+CREATE PROCEDURE IniciarSesion
+    @Correo varchar(200),  
+    @Contrasenna varchar(200)  
+AS  
+BEGIN  
+    SELECT ID, Correo, U.Nombre 'Nombre', U.IdRol, R.NombreRol 'NombreRol', Estado, EsTemporal  
+    FROM Usuarios U  
+    INNER JOIN Roles R ON U.IdRol = R.IdRol  
+    WHERE Correo = @Correo  
+    AND Contrasenna = @Contrasenna  
+    AND Estado = 1  
+END;
+
+
+-- Registro de Usuario
+CREATE PROCEDURE RegistrarUsuario
+    @Correo varchar(200),  
+    @Contrasenna varchar(200),  
+    @Nombre varchar(200),  
+    @Cedula varchar(200),  
+    @Telefono varchar(200)  
+AS  
+BEGIN
+    IF NOT EXISTS(SELECT 1 FROM Usuarios WHERE Correo = @Correo)  
+    BEGIN  
+        INSERT INTO dbo.Usuarios(Nombre, Telefono, Correo, Contrasenna, IdRol, Estado, EsTemporal)  
+        VALUES(@Nombre, @Telefono, @Correo, @Contrasenna, 3, 1, 0)  
+    END  
+END;
+
+
+-- Recuperación de Cuenta
+CREATE PROCEDURE RecuperarAcceso
+	@Correo			VARCHAR(200),
+	@Contrasenna	VARCHAR(200),
+	@EsTemporal		BIT
+AS
+BEGIN
+	DECLARE @Consecutivo BIGINT
+	SELECT @Consecutivo = ID
+	FROM	Usuarios
+	WHERE	Correo = @Correo
+		AND Estado = 1
+
+	IF(@Consecutivo IS NOT NULL)
+	BEGIN
+		UPDATE	Usuarios
+		SET		Contrasenna = @Contrasenna,
+				EsTemporal  = @EsTemporal
+		WHERE	Correo = @Correo
+	END
+	SELECT	ID,Correo,U.Nombre 'Nombre',U.IdRol,R.NombreRol 'NombreRol',Estado
+	FROM	Usuarios U
+	INNER	JOIN Roles R ON U.IdRol = R.IdRol	
+	WHERE	Correo = @Correo
+END
